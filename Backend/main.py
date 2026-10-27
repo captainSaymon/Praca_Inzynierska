@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from datetime import datetime
 
-from cleaning.id import CleanerID
+from tools.cleaningID import CleanerID
+from tools.searchingID import SearcherID
 from schema.movie import MovieDetailsSchema
 from schema.person import PersonDataSchema
 
@@ -17,6 +18,7 @@ app = FastAPI()
 load_dotenv()
 api_key=os.getenv('KEY')
 dictionary = "ID_data"
+
 url_movie_details = 'https://api.themoviedb.org/3/movie/{ID}?language=pl&append_to_response=cast'
 url_person_data = 'https://api.themoviedb.org/3/person/{ID}?language=pl'
 url_movie_ids = 'http://files.tmdb.org/p/exports/movie_ids_{date}.json.gz'
@@ -114,7 +116,12 @@ def save_all_data_to_database():
 def get_data(file_name: str, URL):
     file_path = os.path.join(dictionary, file_name)
 
+    result_data = []
+    step = 0
+
     for element in read_element(file_path):
+        print(f"ITEM: {file_name} {step}")
+
         id = element.get("id")
         url_data = URL.format(ID=id)
         response = send_request_with_key(url_data)
@@ -122,7 +129,11 @@ def get_data(file_name: str, URL):
         if response.status_code == 200:
             result = response.json()
             if "movie" in file_name.lower():
-                return {'data': convert_to_schema_movie(result)}
+                movie_data = convert_to_schema_movie(result)
+                clean_person_form_list(movie_data, file_name)
+
+                result_data.append(movie_data)
+            
             elif "person" in file_name.lower():
                 return {'data': convert_to_schema_person(result)}
             else:
@@ -130,9 +141,34 @@ def get_data(file_name: str, URL):
         else:
             print(f"ERROR: {url_data}")
 
-        break
+        if step == 3:
+            return {'data': result_data}
+        step += 1
 
     return {"Status": "Done"}
+
+def clean_person_form_list(data: MovieDetailsSchema, file_name: str):
+    cast = data.cast.cast
+    crew = data.cast.crew
+
+    filtered_cast = clean_array_by_id(file_name, cast)
+    filtered_crew = clean_array_by_id(file_name, crew)
+
+    data.cast.cast = filtered_cast
+    data.cast.crew = filtered_crew
+
+def clean_array_by_id(file_name, array):
+    result = []
+    for person in array:
+        person_id = person.id  
+        searcher = SearcherID(dictionary, file_name, id=person_id)
+        
+        if searcher.search():
+            result.append(person)
+            
+    return result
+
+        
 
 # Odczyt tylko jednego elementu pokolej z listy (bez zapisu dzięki yield)
 def read_element(file_path):

@@ -6,16 +6,17 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from datetime import datetime
+
 from cleaning.id import CleanerID
+from schema.movie import MovieDetailsSchema
 
 
 app = FastAPI()
 
 load_dotenv()
 api_key=os.getenv('KEY')
-
 dictionary = "ID_data"
-url_movie_details = 'https://api.themoviedb.org/3/movie/{ID}?language=pl'
+url_movie_details = 'https://api.themoviedb.org/3/movie/{ID}?language=pl&append_to_response=cast'
 url_movie_ids = 'http://files.tmdb.org/p/exports/movie_ids_{date}.json.gz'
 url_person_ids = 'https://files.tmdb.org/p/exports/person_ids_{date}.json.gz'
 
@@ -87,7 +88,11 @@ def current_date():
 
 # Wysłanie zapytania z możliwymi parametrami
 def send_request(url, timeOut=100, params=None):
-    return requests.get(url, timeout=timeOut, params=params)
+    response = requests.get(url, timeout=timeOut, params=params)
+
+    # kodowanie na polskie znaki
+    response.encoding = 'utf-8'
+    return response
 
 # Wysłanie zapytania z kluczem API
 def send_request_with_key(url):
@@ -97,7 +102,7 @@ def send_request_with_key(url):
 
 @app.post("/save/data")
 def save_all_data_to_database():
-    get_data()
+    return get_data()
 
 # pobieranie danych o filmach
 def get_data():
@@ -109,7 +114,7 @@ def get_data():
         response = send_request_with_key(url_data)
 
         if response.status_code == 200:
-            print(response.content)
+            return {'data': convert_to_schema_movie(response.json())}
         else:
             print(f"ERROR: {url_data}")
 
@@ -134,3 +139,6 @@ def read_element(file_path):
                 yield item
             except json.JSONDecodeError:
                 print(f"ERROR: reading line {index} in file: {os.path.basename(file_path)}")
+
+def convert_to_schema_movie(data):
+    return MovieDetailsSchema.model_validate(data)

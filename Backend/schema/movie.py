@@ -10,8 +10,6 @@ class ProductionCompanies(BaseModel):
     name: str
 
 class CrewMemberSchema(BaseModel):
-    adult: Optional[bool] = None
-    gender: Optional[int] = None
     id: int
     name: str
     character: Optional[str] = None

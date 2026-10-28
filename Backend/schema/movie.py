@@ -28,6 +28,7 @@ class MovieDetailsSchema(BaseModel):
     budget: int
     genres: List[str] = []
     homepage: Optional[str] = None
+    id: int
     origin_country: List[str]
     original_title: Optional[str] = None
     overview: Optional[str] = None

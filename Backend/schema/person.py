@@ -9,6 +9,7 @@ class PersonDataSchema(BaseModel):
     birthday: Optional[str] = None
     deathday: Optional[str] = None
     gender: int
+    id: int
     known_for_department: Optional[str] = None
     name: str
     place_of_birth: str

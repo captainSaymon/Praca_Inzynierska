@@ -12,11 +12,11 @@ from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 
 from tools.cleaningID import CleanerID
-from tools.searchingID import SearcherID
 from schema.person import PersonDataSchema
 from schema.movie import MovieDetailsSchema
 from database.model.model import ArrayMovie, ArrayPerson
 from database.connect.connect import Base, engine, get_db
+from database.model.movie import MovieModel
 
 
 app = FastAPI()
@@ -115,7 +115,7 @@ def download_clean_data_id(URLs, db, start, popularity):
     else:
         return {"Status": "Done"}
 
-# Zapis danych do wybranego folderu
+# Zapis danych do bazy danych
 def save_data(field_name, table, data, db):
     ID = data.get("id")
     name = data.get(field_name)
@@ -134,6 +134,7 @@ def save_data(field_name, table, data, db):
         db.commit()
         db.refresh(new_element)
         return True
+    
     except DataError as e:
         db.rollback() 
         print(f"[BUG] Pominięto element {ID} jest za długi: {len(name)}")
@@ -165,39 +166,45 @@ def get_max_id(db, table):
 
 
 @app.get("/save/movie/data")
-def save_all_data_to_database():
-    return get_data(file_name="movie_id.json", URL=url_movie_details)
-
-
+def save_all_data_to_database(db: Session = Depends(get_db)):
+    return get_data(db, name="movie")
 
 @app.post("/save/person/data")
-def save_all_data_to_database():
-    return get_data(file_name="person_id.json", URL=url_person_data)
+def save_all_data_to_database(db: Session = Depends(get_db)):
+    return get_data(db, name="person")
+
+
 
 # pobieranie danych o filmach
-def get_data(file_name: str, URL):
-    dictionary = "ID_data"
-    file_path = os.path.join(dictionary, file_name)
-
+def get_data(db, name: str):
     result_data = []
     step = 0
 
-    for element in read_element(file_path):
-        print(f"ITEM: {file_name} {step}")
+    if name.lower() == 'movie':
+        table = ArrayMovie
+        URL=url_movie_details
+    elif name.lower() == 'person':
+        table = ArrayPerson
+        URL=url_person_data
+    else:
+        return {"[ERROR]": "zla nazwa"}
 
-        id = element.get("id")
+    for element in read_element(table, db):
+        id = element.id
         url_data = URL.format(ID=id)
         response = send_request_with_key(url_data)
 
         if response.status_code == 200:
             result = response.json()
-            if "movie" in file_name.lower():
+
+            if name.lower() == 'movie':
                 movie_data = convert_to_schema_movie(result)
-                clean_person_form_list(movie_data, file_name)
+                clean_person_form_list(movie_data, db)
+                print(save_main_data(MovieModel, movie_data, db))
 
                 result_data.append(movie_data)
             
-            elif "person" in file_name.lower():
+            elif name.lower() == 'person':
                 return {'data': convert_to_schema_person(result)}
             else:
                 return {'ERROR': 'There is no specify data to search'}
@@ -210,49 +217,69 @@ def get_data(file_name: str, URL):
 
     return {"Status": "Done"}
 
-def clean_person_form_list(data: MovieDetailsSchema, file_name: str):
+def clean_person_form_list(data: MovieDetailsSchema, db):
     cast = data.cast.cast
     crew = data.cast.crew
 
-    filtered_cast = clean_array_by_id(file_name, cast)
-    filtered_crew = clean_array_by_id(file_name, crew)
+    filtered_cast = clean_array_by_id(cast, db, ArrayPerson)
+    filtered_crew = clean_array_by_id(crew, db, ArrayPerson)
 
     data.cast.cast = filtered_cast
     data.cast.crew = filtered_crew
 
-def clean_array_by_id(file_name, array):
+def clean_array_by_id(array, db, table):
     result = []
     for person in array:
         person_id = person.id  
-        searcher = SearcherID(file_name, id=person_id)
+        search_result = search_id(person_id, db, table)
         
-        if searcher.search():
+        if search_result:
             result.append(person)
             
     return result
 
+def search_id(id, db, table):
+    return db.query(table).filter(table.id == id).first()
         
 
 # Odczyt tylko jednego elementu pokolej z listy (bez zapisu dzięki yield)
-def read_element(file_path):
-    if not os.path.exists(file_path):
-        print(f"ERROR \npath do not exesits: {file_path}")
-        return
-    
-    with open(file_path, "r", encoding="utf-8") as file:
-        for index, line in enumerate(file):
-            line = line.strip()
-            if not line:
-                continue
+def read_element(table, db):
+    try:
+        data = db.query(table).yield_per(500)
+        for movie in data:
+            yield movie
 
-            try:
-                item = json.loads(line)
-                yield item
-            except json.JSONDecodeError:
-                print(f"ERROR: reading line {index} in file: {os.path.basename(file_path)}")
+    finally:
+        db.close()
+    
 
 def convert_to_schema_movie(data):
     return MovieDetailsSchema.model_validate(data)
 
 def convert_to_schema_person(data):
     return PersonDataSchema.model_validate(data)
+
+
+def save_main_data(table, data, db):
+    print(table)
+    existing_element = db.query(table).filter(table.id == data.id).first()
+    if existing_element:
+        return False
+
+    kwargs = (data.model_dump() if hasattr(data, "model_dump") else data.dict())
+
+    if "cast" in kwargs:
+        kwargs["cast_data"] = kwargs.pop("cast")
+
+    try:
+        new_element = table(**kwargs)
+
+        db.add(new_element)
+        db.commit()
+        db.refresh(new_element)
+        return True
+    
+    except DataError as e:
+        db.rollback() 
+        print(f"[ERROR] {e}")
+        return False

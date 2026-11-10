@@ -2,10 +2,11 @@ import json
 import re
 
 class CleanerID:
-    def __init__(self, source, check_name, popularity):
+    def __init__(self, source, check_name, popularity, start_id):
         self.source = source
         self.check_name = check_name
         self.popularity = popularity
+        self.start_id = start_id
 
         self.check_key = self._check_value()
 
@@ -63,9 +64,16 @@ class CleanerID:
 
             try:
                 glossary = json.loads(line)
+
+                # flaga opuszczenia nazwy kolumn
                 if check:
                     check = False
 
+                # opuszczenie sobie danych ktore sa zapisane
+                if self.start_id and glossary.get("id") <= self.start_id:
+                    continue
+
+                # pobieranie tych danych ktore przekraczaja wartość popularity oraz spełniaja dodatkowe kryteria
                 if glossary.get("popularity", 0) > self.popularity and self._contains_latin(glossary.get(self.check_key)):
                     self.count += 1
                     self.result += line + "\n"

@@ -3,88 +3,140 @@ import json
 import gzip
 import os
 
-from dotenv import load_dotenv
-from fastapi import FastAPI
 from datetime import datetime
+from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.exc import DataError
+from fastapi import FastAPI, Depends
+from contextlib import asynccontextmanager
 
 from tools.cleaningID import CleanerID
 from tools.searchingID import SearcherID
-from schema.movie import MovieDetailsSchema
 from schema.person import PersonDataSchema
+from schema.movie import MovieDetailsSchema
+from database.model.model import ArrayMovie, ArrayPerson
+from database.connect.connect import Base, engine, get_db
 
 
 app = FastAPI()
 
 load_dotenv()
 api_key=os.getenv('KEY')
-dictionary = "ID_data"
 
 url_movie_details = 'https://api.themoviedb.org/3/movie/{ID}?language=pl&append_to_response=cast'
 url_person_data = 'https://api.themoviedb.org/3/person/{ID}?language=pl'
 url_movie_ids = 'http://files.tmdb.org/p/exports/movie_ids_{date}.json.gz'
 url_person_ids = 'https://files.tmdb.org/p/exports/person_ids_{date}.json.gz'
 
+# Tworzenie tabel przy starcie aplikacji
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(title="MovieCheck API", lifespan=lifespan)
+
+
 
 @app.get("/create/dataID")
-def get_all_id():
-    url_movie={"movie": url_movie_ids.format(date=current_date())}
-    url_person={"person": url_person_ids.format(date=current_date())}
-    URLs = [url_movie, url_person]
+def get_all_id(popularity: int | None = 3, start: bool | None = True, table: str | None = None,  db: Session = Depends(get_db)):
+    url_movie, url_person = {'0': None}, {'0': None}
 
-    return download_clean_data_id(URLs)
+    if not table or table == 'movie':
+        url_movie={"movie": url_movie_ids.format(date=current_date())}
+    if not table or table == 'person':
+        url_person={"person": url_person_ids.format(date=current_date())}
+
+    URLs = [url_movie, url_person]
+    print(f"[PARAMS] (start: {start}) (popularity: {popularity}) (table: {'both' if not table else table})")
+
+    return download_clean_data_id(URLs, db, start, popularity)
 
 
 # Pobranie listy id i ich oczyszczenie
-def download_clean_data_id(URLs):
-    error_data = []
+def download_clean_data_id(URLs, db, start, popularity):
+    error_data = False
 
     for url in URLs:
         for key, val in url.items():
+            if not val:
+                continue
+
+            print(f"[START] {key} id list download")
+            # Ustawienie nazwy kolumny do zapisu
+            if key == 'movie':
+                field_name = 'original_title'
+                table = ArrayMovie
+            else:
+                field_name = 'name'
+                table = ArrayPerson
 
             # pobranie pliku gzip z danymi ID
             response = send_request(val)
             
             if response.status_code == 200:
-                print(f"DOWNLOAD: {key}")
+                print(f"[DATA] DOWNLOAD: {key}")
 
                 # kompresja gzip do formy bitowej potem do tekstu
                 compres_data = response.content
                 byte_data = gzip.decompress(compres_data)
                 data = byte_data.decode("utf-8")
 
-                # czyszczenie danych ID
-                cleanerID = CleanerID(data, key, 3)
-                cleaned_data, count = cleanerID.getResult()
-                print(f"CLEANED {key} \n{count} elements")
+                # ID od ktorego pobieramy dane
+                start_id = None
+                
+                if start:
+                    start_id = get_max_id(db, table)
+                    print(f"[DATA] MAX ID: {start_id}")
 
-                file_name = f"{key}_id.json"
-                if save_data(file_name, cleaned_data):
-                    print(f"SUCCESS \n{key} are save to: {dictionary}")
-                else:
-                    print(f"ERROR \n{key} are not save to: {dictionary}")
-                    error_data.append(key)
+                # czyszczenie danych ID
+                cleanerID = CleanerID(data, key, popularity, start_id)
+                cleaned_data, count = cleanerID.getResult()
+                print(f"[CLEANED] {key} \n{count} elements")
+
+                for el_json in cleaned_data.splitlines():
+                    el_json = el_json.strip()
+                    if not el_json:
+                        continue
+
+                    try:
+                        json_cleaned_data = json.loads(el_json)
+                        save_data(field_name, table, json_cleaned_data, db)
+
+                    except json.JSONDecodeError:
+                        print(f"[ERROR] That is not JSON: {el_json}")
             else:
-                print(f"ERROR: {key}")
-                error_data.append(key)
+                print(f"[ERROR] {key}")
+                error_data = True
 
     if error_data:
-        return {"Status": f"Error with data: {error_data}"}
+        return {"Status": f"Error with data"}
     else:
         return {"Status": "Done"}
 
 # Zapis danych do wybranego folderu
-def save_data(file_name, data):
-    path = os.path.join(dictionary, file_name)
-    try:
-        os.makedirs(dictionary, exist_ok=True)
+def save_data(field_name, table, data, db):
+    ID = data.get("id")
+    name = data.get(field_name)
+    popularity = data.get("popularity")
 
-        with open(path, "w", encoding="utf-8") as file:
-            file.write(data)
-        return True
-    
-    except Exception as e:
-        print(f"ERROR: {e}")
+    existing_element = db.query(table).filter(table.id == ID).first()
+    if existing_element:
         return False
+
+    kwargs = {"id": ID, field_name: name, "popularity": popularity}
+
+    try:
+        new_element = table(**kwargs)
+
+        db.add(new_element)
+        db.commit()
+        db.refresh(new_element)
+        return True
+    except DataError as e:
+        db.rollback() 
+        print(f"[BUG] Pominięto element {ID} jest za długi: {len(name)}")
 
 # Pobranie obecnej daty
 def current_date():
@@ -102,11 +154,21 @@ def send_request(url, timeOut=100, params=None):
 def send_request_with_key(url):
     params_api_key = {"api_key": api_key}
     return send_request(url, params=params_api_key)
-    
 
-@app.post("/save/movie/data")
+# Pobieranie najwiekszego id z bazy danych
+def get_max_id(db, table):
+    max_id = db.query(func.max(table.id)).scalar()
+    if max_id:
+        return max_id
+    return None
+
+
+
+@app.get("/save/movie/data")
 def save_all_data_to_database():
     return get_data(file_name="movie_id.json", URL=url_movie_details)
+
+
 
 @app.post("/save/person/data")
 def save_all_data_to_database():
@@ -114,6 +176,7 @@ def save_all_data_to_database():
 
 # pobieranie danych o filmach
 def get_data(file_name: str, URL):
+    dictionary = "ID_data"
     file_path = os.path.join(dictionary, file_name)
 
     result_data = []
@@ -161,7 +224,7 @@ def clean_array_by_id(file_name, array):
     result = []
     for person in array:
         person_id = person.id  
-        searcher = SearcherID(dictionary, file_name, id=person_id)
+        searcher = SearcherID(file_name, id=person_id)
         
         if searcher.search():
             result.append(person)

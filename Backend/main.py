@@ -1,4 +1,6 @@
 import requests
+import asyncio
+import httpx
 import json
 import gzip
 import os
@@ -8,7 +10,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 from sqlalchemy.exc import DataError
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, BackgroundTasks
 from contextlib import asynccontextmanager
 
 from tools.cleaningID import CleanerID
@@ -166,56 +168,94 @@ def get_max_id(db, table):
 
 
 @app.get("/save/movie/data")
-def save_all_data_to_database(db: Session = Depends(get_db)):
-    return get_data(db, name="movie")
+def save_all_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
+    background_tasks.add_task(get_data, db=db, start=start, name="movie")
+    return {"message": "Rozpoczęto pobieranie"}
 
 @app.post("/save/person/data")
-def save_all_data_to_database(db: Session = Depends(get_db)):
-    return get_data(db, name="person")
+def save_all_data_to_database(db: Session = Depends(get_db), start: bool | None = True):
+    return get_data(db, start, name="person")
 
 
 
 # pobieranie danych o filmach
-def get_data(db, name: str):
-    result_data = []
-    step = 0
+async def get_data(db, name: str, start: bool):
+    limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    async with httpx.AsyncClient(limits=limits, timeout=10.0) as client:
+        semaphore = asyncio.Semaphore(50)
 
-    if name.lower() == 'movie':
-        table = ArrayMovie
-        URL=url_movie_details
-    elif name.lower() == 'person':
-        table = ArrayPerson
-        URL=url_person_data
-    else:
-        return {"[ERROR]": "zla nazwa"}
-
-    for element in read_element(table, db):
-        id = element.id
-        url_data = URL.format(ID=id)
-        response = send_request_with_key(url_data)
-
-        if response.status_code == 200:
-            result = response.json()
-
-            if name.lower() == 'movie':
-                movie_data = convert_to_schema_movie(result)
-                clean_person_form_list(movie_data, db)
-                print(save_main_data(MovieModel, movie_data, db))
-
-                result_data.append(movie_data)
+        if name.lower() == 'movie':
+            table_id = ArrayMovie
+            table_data = MovieModel
+            URL=url_movie_details
             
-            elif name.lower() == 'person':
-                return {'data': convert_to_schema_person(result)}
-            else:
-                return {'ERROR': 'There is no specify data to search'}
+        elif name.lower() == 'person':
+            table_id = ArrayPerson
+            URL=url_person_data
+
         else:
-            print(f"ERROR: {url_data}")
+            return {"[ERROR]": "zla nazwa"}
 
-        if step == 3:
-            return {'data': result_data}
-        step += 1
+        # ID od ktorego pobieramy dane
+        start_id = None
+        
+        if start:
+            start_id = get_max_id(db, table_data)
+            print(f"[DATA] MAX ID: {start_id}")
 
-    return {"Status": "Done"}
+        tasks = []
+
+        async for element in read_element(table_id, db):
+            id = element.id
+
+            if start_id and start_id > id:
+                continue
+
+            url_data = URL.format(ID=id)
+
+            task = asyncio.create_task(send_async_request_with_key(client, url_data, semaphore))
+            tasks.append(task)
+
+            # kontrola tempa
+            await asyncio.sleep(1 / 50)
+
+            for task in tasks:
+                response = await task
+
+                if response and response.status_code == 200:
+                    result = response.json()
+
+                    if name.lower() == 'movie':
+                        movie_data = convert_to_schema_movie(result)
+                        clean_person_form_list(movie_data, db)
+                        save_main_data(MovieModel, movie_data, db)
+                    
+                    elif name.lower() == 'person':
+                        return {'data': convert_to_schema_person(result)}
+                    
+                    else:
+                        return {'ERROR': 'There is no specify data to search'}
+
+
+# Wysłanie zapytania z kluczem API async
+async def send_async_request_with_key(client: httpx.AsyncClient, url, semaphore: asyncio.Semaphore):
+    async with semaphore:
+        try:
+            params_api_key = {"api_key": api_key}
+            response = await client.get(url, timeout=100, params=params_api_key)
+
+            if response.status_code == 200:
+                # kodowanie na polskie znaki
+                response.encoding = 'utf-8'
+                return response
+            
+            else:
+                return None
+            
+        except Exception as e:
+            print(f"Błąd dla ID {url}: {e}")
+            return None
+
 
 def clean_person_form_list(data: MovieDetailsSchema, db):
     cast = data.cast.cast
@@ -243,9 +283,9 @@ def search_id(id, db, table):
         
 
 # Odczyt tylko jednego elementu pokolej z listy (bez zapisu dzięki yield)
-def read_element(table, db):
+async def read_element(table, db):
     try:
-        data = db.query(table).yield_per(500)
+        data = db.query(table).order_by(table.id).yield_per(500)
         for movie in data:
             yield movie
 
@@ -261,7 +301,6 @@ def convert_to_schema_person(data):
 
 
 def save_main_data(table, data, db):
-    print(table)
     existing_element = db.query(table).filter(table.id == data.id).first()
     if existing_element:
         return False

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import List, Optional, Any
 
 # Dane o gatunkach
@@ -41,7 +41,10 @@ class MovieDetailsSchema(BaseModel):
     title: str
     vote_average: Optional[float] = None
     vote_count: Optional[int] = None
-    cast: CreditsSchema
+    cast: CreditsSchema = Field(default_factory=CreditsSchema, alias="credits")
+
+    class Config:
+        populate_by_name = True
 
     @field_validator('genres', mode='before')
     @classmethod

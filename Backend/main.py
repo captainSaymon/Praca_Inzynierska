@@ -6,7 +6,7 @@ from database.connect.connect import Base, engine, get_db
 from functions.download.dataID import download_clean_data_id
 from functions.basic import current_date
 from functions.download.dataDetails import get_data
-from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_data
+from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 
 
 app = FastAPI()
@@ -43,12 +43,14 @@ def get_all_id(popularity: int | None = 2, start: bool | None = True, db: Sessio
 
 @app.get("/save/movie/data")
 def save_all_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
-    background_tasks.add_task(get_data, db=db, start=start, name="movie", api_key=api_key, url_movie_details=url_movie_details, url_person_data=url_person_data)
+    background_tasks.add_task(get_data, db=db, start=start, api_key=api_key, url=url_movie_details)
     
     return {"message": "Rozpoczęto pobieranie"}
 
 
 
-@app.post("/save/person/data")
-def save_all_data_to_database(db: Session = Depends(get_db), start: bool | None = True):
-    return get_data(db, start, name="person")
+@app.get("/save/person/data")
+def save_all_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
+    background_tasks.add_task(get_data, db=db, start=start, api_key=api_key, url=url_person_details)
+
+    return {"message": "Rozpoczęto pobieranie"}

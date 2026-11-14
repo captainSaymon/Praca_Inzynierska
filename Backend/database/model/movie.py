@@ -15,6 +15,7 @@ class MovieModel(Base):
   origin_country = Column(ARRAY(Text), nullable=True)
   original_title = Column(String(255), nullable=True)
   overview = Column(Text, nullable=True)
+  popularity = Column(Float, nullable=True)
   poster_path = Column(Text, nullable=True)
   production_companies = Column(JSONB, nullable=True)
   release_date = Column(Date, nullable=True)

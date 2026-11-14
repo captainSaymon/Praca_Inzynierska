@@ -32,6 +32,7 @@ class MovieDetailsSchema(BaseModel):
     origin_country: List[str]
     original_title: Optional[str] = None
     overview: Optional[str] = None
+    popularity: float = None
     poster_path: Optional[str] = None
     production_companies: List[ProductionCompanies]
     release_date: str

@@ -71,9 +71,14 @@ async def search_id(id, db, table):
         
 
 # Odczyt tylko jednego elementu pokolej z listy
-async def read_element(table, db):
+async def read_element(table, db, sort_by_value = None):
+    if sort_by_value:
+        value = table.id
+    else:
+        value = sort_by_value
+        
     try:
-        data = db.query(table).order_by(table.id).all()
+        data = db.query(table).order_by(value).all()
         for el in data:
             yield el
 

@@ -26,20 +26,20 @@ app = FastAPI(title="MovieCheck API", lifespan=lifespan)
 
 
 @app.get("/create/movie/id")
-def get_array_movie_id(popularity: int | None = 3, start: bool | None = True,  db: Session = Depends(get_db)):
+async def get_array_movie_id(popularity: int | None = 3, start: bool | None = True,  db: Session = Depends(get_db)):
     url_movie={"movie": url_movie_ids.format(date=current_date())}
     print(f"[PARAMS] (start: {start}) (popularity: {popularity})")
 
-    download_clean_data_id(url_movie, db, start, popularity)
+    await download_clean_data_id(url_movie, db, start, popularity)
     return {"message": "Rozpoczęto pobieranie"}
 
 
 @app.get("/create/person/id")
-def get_array_person_id(popularity: int | None = 2, start: bool | None = True, db: Session = Depends(get_db)):
+async def get_array_person_id(popularity: int | None = 1, start: bool | None = True, db: Session = Depends(get_db)):
     url_person={"person": url_person_ids.format(date=current_date())}
     print(f"[PARAMS] (start: {start}) (popularity: {popularity})")
 
-    download_clean_data_id(url_person, db, start, popularity)
+    await download_clean_data_id(url_person, db, start, popularity)
     return {"message": "Rozpoczęto pobieranie"}
 
 

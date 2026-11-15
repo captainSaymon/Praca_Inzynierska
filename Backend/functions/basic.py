@@ -61,7 +61,7 @@ async def save_data_to_database(db, table, data):
     
     except DataError as e:
         db.rollback() 
-        print(f"[ERROR]: {e}\n {data}")
+        print(f"[ERROR]: {e}")
 
 
 # szukanie w tabli po id
@@ -78,7 +78,7 @@ async def read_element(table, db, sort_by_value = None):
         value = sort_by_value
         
     try:
-        data = db.query(table).order_by(value).all()
+        data = db.execute(select(table).order_by(value)).scalars().all()
         for el in data:
             yield el
 

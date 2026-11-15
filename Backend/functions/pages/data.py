@@ -1,5 +1,6 @@
 
 from database.model.movie import MovieModel
+from database.model.person import PersonModel
 from sqlalchemy import extract
 
 
@@ -30,3 +31,16 @@ def movie_pages(db, page, number_per_page, genre: str | None = None, decade: int
     pages_result = query.order_by(table.popularity.desc()).offset(skip).limit(number_per_page).all()
 
     return pages_result
+
+
+
+def page_data(db, id: int, table):
+    return db.query(table).filter(table.id == id).first()
+
+
+def movie_page_data(db, id: int):
+    return page_data(db, id, MovieModel)
+
+    
+def person_page_data(db, id: int):
+    return page_data(db, id, PersonModel)

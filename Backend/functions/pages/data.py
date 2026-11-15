@@ -1,4 +1,3 @@
-
 from database.model.movie import MovieModel
 from database.model.person import PersonModel
 

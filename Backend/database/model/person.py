@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, Text, Date
+from sqlalchemy import Boolean, Column, Integer, Text, Date, Float
 from ..connect.connect import Base
 
 class PersonModel(Base):
@@ -14,4 +14,5 @@ class PersonModel(Base):
     known_for_department = Column(Text, nullable=True)
     name  = Column(Text, nullable=False)
     place_of_birth  = Column(Text, nullable=True)
+    popularity = Column(Float, nullable=True)
     profile_path  = Column(Text, nullable=True)

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator, Field
 from typing import List, Optional, Any
+from datetime import date
 
 # Dane o gatunkach
 class Genre(BaseModel):
@@ -35,7 +36,7 @@ class MovieDetailsSchema(BaseModel):
     popularity: float = None
     poster_path: Optional[str] = None
     production_companies: List[ProductionCompanies]
-    release_date: str
+    release_date: date
     revenue: Optional[int] = None
     runtime: Optional[int] = None
     status: Optional[str] = None

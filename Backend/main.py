@@ -59,6 +59,7 @@ def save_person_data_to_database(background_tasks: BackgroundTasks, db: Session 
 
 
 @app.get("/pages/movie")
-def get_movie_data_for_pages(db: Session = Depends(get_db), page: int = 0, number_per_page: int = 10, genre: str | None = None, decade: int | None = None, year: int | None = None):
-    return {"pages": movie_pages(db, page, number_per_page, genre, decade, year)}
+@app.get("/filters/movie")
+def get_movie_data_for_pages(db: Session = Depends(get_db), page: int = 0, number_per_page: int = 10, genre: str | None = None, decade: int | None = None, year: int | None = None, new: bool | None = False):
+    return {"pages": movie_pages(db, page, number_per_page, genre, decade, year, new)}
     

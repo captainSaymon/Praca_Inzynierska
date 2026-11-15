@@ -4,7 +4,7 @@ from sqlalchemy import extract
 
 
 
-def movie_pages(db, page, number_per_page, genre: str | None = None, decade: int | None = None, year: int | None = None):
+def movie_pages(db, page, number_per_page, genre: str | None = None, decade: int | None = None, year: int | None = None, new: bool | None = False):
     pages_result = []
     skip = page * number_per_page
     table = MovieModel
@@ -23,6 +23,9 @@ def movie_pages(db, page, number_per_page, genre: str | None = None, decade: int
     # sortowanie po roku
     if year:
         query = query.filter(extract('year', table.release_date) == year)
+
+    if new:
+        query = query.order_by(table.release_date.desc())
 
     pages_result = query.order_by(table.popularity.desc()).offset(skip).limit(number_per_page).all()
 

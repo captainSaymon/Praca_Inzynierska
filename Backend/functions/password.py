@@ -2,12 +2,13 @@ import bcrypt
 
 
 def create_hashed_password(password: str):
-    bytes = password.encode('utf-8')
+    password_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(bytes, salt)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def verification_hashed_password(password: str, hashed_password: str):
     password_byte = password.encode('utf-8')
     hashed_password_byte = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(password_byte, hashed_password)
+    return bcrypt.checkpw(password_byte, hashed_password_byte)

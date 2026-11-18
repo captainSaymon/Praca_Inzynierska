@@ -10,11 +10,11 @@ from functions.download.dataDetails import get_data
 from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 #from functions.user.movie.action.rating import search_rating
-from functions.user.user import create
+from functions.user.user import register, login
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema
-from schema.user import UserCreateDetailsSchema, UsersResponseDetailsSchema
+from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema
 
 
 
@@ -88,10 +88,16 @@ def search(q: Optional[str] = Query(None), db: Session = Depends(get_db), page: 
     return search_data(db, q, page, number_per_page)
 
 
-@app.post("/create/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def create_user(data: UserCreateDetailsSchema, db: Session = Depends(get_db)):
-    print(f"[CREATING USER]")
-    return create(db, data)
+@app.post("/register/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[REGISTER USER]")
+    return register(db, data)
+
+
+@app.post("/login/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[LOGIN USER]")
+    return login(db, data)
 
 
 @app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema)

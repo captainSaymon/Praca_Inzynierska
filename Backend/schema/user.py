@@ -20,11 +20,16 @@ class UsersShortDetailsSchema(BaseModel):
     email: str
     nickname: str
 
-class UserCreateDetailsSchema(BaseModel):
+class UserRegisterDetailsSchema(BaseModel):
     email: str
     nickname: str
     password: str
     birthday: date
+
+class UserLoginDetailsSchema(BaseModel):
+    nickname: str
+    password: str
+
 
 class UsersUpdateDetailsSchema(BaseModel):
     email: Optional[int] = None

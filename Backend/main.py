@@ -9,11 +9,11 @@ from functions.basic import current_date
 from functions.download.dataDetails import get_data
 from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
-#from functions.user.movie.action.rating import search_rating
+from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
 from functions.user.user import register, login, edit
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
-from schema.rating import RatingResponseDetailsSchema
+from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
 from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
 
 
@@ -106,7 +106,20 @@ def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
     return edit(db, data)
 
 
-@app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema)
+@app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def get_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[CREATE RATING]")
+    return create_rating(db, data)
+
+
+@app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
 def get_user_movie_rating(id_user: int, id_movie: int, db: Session = Depends(get_db)):
     print(f"[SEARCH RATING]: movie {id_movie}")
     return search_rating(db, id_user, id_movie)
+
+
+@app.get("/user/{id_user}/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_rating(id_user: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH ALL RATING]")
+    ratings = search_all_rating(db, id_user)
+    return {"rates": ratings}

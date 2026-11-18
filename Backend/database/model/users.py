@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, Text, Date
+from sqlalchemy import Column, Integer, Text, Date
 from ..connect.connect import Base
 from datetime import date
 

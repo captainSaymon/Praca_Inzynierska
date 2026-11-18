@@ -15,11 +15,6 @@ class UsersResponseDetailsSchema(BaseModel):
     class Config:
         from_attributes = True
 
-class UsersShortDetailsSchema(BaseModel):
-    id: int
-    email: str
-    nickname: str
-
 class UserRegisterDetailsSchema(BaseModel):
     email: str
     nickname: str
@@ -32,9 +27,10 @@ class UserLoginDetailsSchema(BaseModel):
 
 
 class UsersUpdateDetailsSchema(BaseModel):
-    email: Optional[int] = None
-    nickname: Optional[int] = None
-    password: Optional[int] = None
+    id: int
+    email: Optional[str] = None
+    nickname: Optional[str] = None
+    password: Optional[str] = None
     birthday: Optional[date] = None
     gender: Optional[int] = None
     name: Optional[str] = None

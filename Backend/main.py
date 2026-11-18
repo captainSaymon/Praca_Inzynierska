@@ -10,11 +10,11 @@ from functions.download.dataDetails import get_data
 from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 #from functions.user.movie.action.rating import search_rating
-from functions.user.user import register, login
+from functions.user.user import register, login, edit
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema
-from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema
+from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
 
 
 
@@ -98,6 +98,12 @@ def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)
 def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
     print(f"[LOGIN USER]")
     return login(db, data)
+
+
+@app.post("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[EDIT USER]")
+    return edit(db, data)
 
 
 @app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema)

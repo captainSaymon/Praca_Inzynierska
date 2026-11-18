@@ -63,15 +63,14 @@ CREATE TABLE IF NOT EXISTS MovieCheckDataBase.users (
 );
 
 CREATE TABLE IF NOT EXISTS MovieCheckDataBase.rating (
-    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	id_user INT NOT NULL,
 	id_movie INT NOT NULL,
 	rate INT NOT NULL CHECK (rate >= 1 AND rate <= 10),
 
-	CONSTRAINT foreign_key_id_user FOREIGN KEY (id_user) REFERENCES MovieCheckDataBase.users(id) ON DELETE CASCADE,
-	CONSTRAINT foreign_key_id_movie FOREIGN KEY (id_movie) REFERENCES MovieCheckDataBase.movie(id) ON DELETE CASCADE,
+	PRIMARY KEY (id_user, id_movie),
 
-	CONSTRAINT unique_rating UNIQUE (id_user, id_movie)
+	CONSTRAINT foreign_key_id_user FOREIGN KEY (id_user) REFERENCES MovieCheckDataBase.users(id) ON DELETE CASCADE,
+	CONSTRAINT foreign_key_id_movie FOREIGN KEY (id_movie) REFERENCES MovieCheckDataBase.movie(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS MovieCheckDataBase.favorite (

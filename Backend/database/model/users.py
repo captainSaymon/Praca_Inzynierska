@@ -11,7 +11,6 @@ class UsersModel(Base):
     nickname = Column(Text, unique=True, nullable=False)
     password = Column(Text, nullable=False)
     birthday = Column(Date, nullable=False)
-    adult = Column(Boolean, nullable=True)
     gender = Column(Integer, nullable=True)
     name = Column(Text, nullable=True)
 

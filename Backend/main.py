@@ -1,12 +1,25 @@
+from typing import Optional
 from sqlalchemy.orm import Session
-from fastapi import FastAPI, Depends, BackgroundTasks
 from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends, BackgroundTasks, Query, status
 
 from database.connect.connect import Base, engine, get_db
 from functions.download.dataID import download_clean_data_id
 from functions.basic import current_date
 from functions.download.dataDetails import get_data
-from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_data
+from functions.pages.data import movie_pages, movie_page_data, person_page_data
+from functions.search.data import search_data
+from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
+from functions.user.user import register, login, edit
+from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review
+from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
+from schema.search import SearchSchema
+from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
+from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
+
+
+
 
 
 app = FastAPI()
@@ -22,33 +35,117 @@ app = FastAPI(title="MovieCheck API", lifespan=lifespan)
 
 
 @app.get("/create/movie/id")
-def get_all_id(popularity: int | None = 3, start: bool | None = True,  db: Session = Depends(get_db)):
+async def get_array_movie_id(popularity: int | None = 3, start: bool | None = True,  db: Session = Depends(get_db)):
     url_movie={"movie": url_movie_ids.format(date=current_date())}
     print(f"[PARAMS] (start: {start}) (popularity: {popularity})")
 
-    download_clean_data_id(url_movie, db, start, popularity)
+    await download_clean_data_id(url_movie, db, start, popularity)
     return {"message": "Rozpoczęto pobieranie"}
 
 
 @app.get("/create/person/id")
-def get_all_id(popularity: int | None = 2, start: bool | None = True, db: Session = Depends(get_db)):
+async def get_array_person_id(popularity: int | None = 1, start: bool | None = True, db: Session = Depends(get_db)):
     url_person={"person": url_person_ids.format(date=current_date())}
     print(f"[PARAMS] (start: {start}) (popularity: {popularity})")
 
-    download_clean_data_id(url_person, db, start, popularity)
+    await download_clean_data_id(url_person, db, start, popularity)
     return {"message": "Rozpoczęto pobieranie"}
 
 
-
-
 @app.get("/save/movie/data")
-def save_all_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
-    background_tasks.add_task(get_data, db=db, start=start, name="movie", api_key=api_key, url_movie_details=url_movie_details, url_person_data=url_person_data)
+def save_movie_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
+    background_tasks.add_task(get_data, db=db, start=start, api_key=api_key, url=url_movie_details)
     
     return {"message": "Rozpoczęto pobieranie"}
 
 
+@app.get("/save/person/data")
+def save_person_data_to_database(background_tasks: BackgroundTasks, db: Session = Depends(get_db), start: bool | None = True):
+    background_tasks.add_task(get_data, db=db, start=start, api_key=api_key, url=url_person_details)
 
-@app.post("/save/person/data")
-def save_all_data_to_database(db: Session = Depends(get_db), start: bool | None = True):
-    return get_data(db, start, name="person")
+    return {"message": "Rozpoczęto pobieranie"}
+
+
+@app.get("/pages/movie")
+@app.get("/filters/movie")
+def get_movie_data_for_pages(db: Session = Depends(get_db), page: int = 0, number_per_page: int = 10, genre: str | None = None, decade: int | None = None, year: int | None = None, new: bool | None = False):
+    return {"pages": movie_pages(db, page, number_per_page, genre, decade, year, new)}
+    
+
+@app.get("/movie/{id}")
+def get_choosen_movie_data(id: int, db: Session = Depends(get_db)):
+    print(f"[MOVIE]: {id}")
+    return {f"movie_{id}": movie_page_data(db, id)}
+
+
+@app.get("/person/{id}")
+def get_choosen_person_data(id: int, db: Session = Depends(get_db)):
+    print(f"[PERSON]: {id}")
+    return {f"person_{id}": person_page_data(db, id)}
+
+
+@app.get("/search", response_model=SearchSchema)
+def search(q: Optional[str] = Query(None), db: Session = Depends(get_db), page: int = 0, number_per_page: int = 10):
+    print(f"[SEARCH]: {q}")
+    return search_data(db, q, page, number_per_page)
+
+
+@app.post("/register/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[REGISTER USER]")
+    return register(db, data)
+
+
+@app.post("/login/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[LOGIN USER]")
+    return login(db, data)
+
+
+@app.patch("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[EDIT USER]")
+    return edit(db, data)
+
+
+@app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def create_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[CREATE RATING]")
+    return create_rating(db, data)
+
+
+@app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_rating(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH RATING]: movie {id_movie}")
+    return search_rating(db, id_user, id_movie)
+
+
+@app.get("/user/{id_user}/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_rating(id_user: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH ALL RATING]")
+    ratings = search_all_rating(db, id_user)
+    return {"rates": ratings}
+
+
+@app.post("/user/review/movie", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def create_user_movie_review(data: ReviewCreateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[CREATE REVIEW]")
+    return create_review(db, data)
+
+
+@app.get("/user/{id_user}/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_reviews(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH REVIEW]: movie {id_movie}")
+    return search_review(db, id_user, id_movie)
+
+
+@app.get("/user/{id_user}/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_reviews(id_user: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH ALL REVIEW]")
+    reviews = search_all_review(db, id_user)
+    return {"reviews": reviews}
+
+@app.patch("/user/{id_user}/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: int, id_movie: int, db: Session = Depends(get_db)):
+    print(f"[EDIT REVIEW]")
+    return edit_review(db, id_user, id_movie, data)

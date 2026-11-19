@@ -9,7 +9,7 @@ from functions.basic import save_data_to_database, send_request, get_max_id
 
 
 # Pobranie listy id i ich oczyszczenie
-def download_clean_data_id(url, db, start, popularity):
+async def download_clean_data_id(url, db, start, popularity):
     for key, val in url.items():
         if not val:
             continue
@@ -49,7 +49,7 @@ def download_clean_data_id(url, db, start, popularity):
 
                 try:
                     json_cleaned_data = json.loads(el_json)
-                    save_data(field_name, table, json_cleaned_data, db)
+                    await save_data(field_name, table, json_cleaned_data, db)
 
                 except json.JSONDecodeError:
                     print(f"[ERROR] That is not JSON: {el_json}")
@@ -75,10 +75,10 @@ def clean_data_by_id(data, key, popularity, start_id):
 
 
 # zapis do bazy
-def save_data(field_name, table, data, db):
+async def save_data(field_name, table, data, db):
     ID = data.get("id")
     name = data.get(field_name)
     popularity = data.get("popularity")
     element = {"id": ID, field_name: name, "popularity": popularity}
 
-    save_data_to_database(db, table, element)
+    await save_data_to_database(db, table, element)

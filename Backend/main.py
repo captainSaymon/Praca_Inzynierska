@@ -11,10 +11,12 @@ from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
 from functions.user.user import register, login, edit
+from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
 from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
 
 
 
@@ -100,14 +102,14 @@ def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
     return login(db, data)
 
 
-@app.post("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+@app.patch("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
 def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
     print(f"[EDIT USER]")
     return edit(db, data)
 
 
 @app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def get_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
+def create_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
     print(f"[CREATE RATING]")
     return create_rating(db, data)
 
@@ -123,3 +125,27 @@ def get_all_user_movie_rating(id_user: int, db: Session = Depends(get_db)):
     print(f"[SEARCH ALL RATING]")
     ratings = search_all_rating(db, id_user)
     return {"rates": ratings}
+
+
+@app.post("/user/review/movie", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def create_user_movie_review(data: ReviewCreateDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[CREATE REVIEW]")
+    return create_review(db, data)
+
+
+@app.get("/user/{id_user}/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_reviews(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH REVIEW]: movie {id_movie}")
+    return search_review(db, id_user, id_movie)
+
+
+@app.get("/user/{id_user}/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_reviews(id_user: int, db: Session = Depends(get_db)):
+    print(f"[SEARCH ALL REVIEW]")
+    reviews = search_all_review(db, id_user)
+    return {"reviews": reviews}
+
+@app.patch("/user/{id_user}/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: int, id_movie: int, db: Session = Depends(get_db)):
+    print(f"[EDIT REVIEW]")
+    return edit_review(db, id_user, id_movie, data)

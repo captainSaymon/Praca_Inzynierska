@@ -19,6 +19,7 @@ from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, U
 from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
 from functions.security.token import get_id_from_token
 from functions.user.movie.lists.watchlist import Watchlist
+from functions.user.movie.lists.favorite import Favorite
 
 
 
@@ -199,6 +200,8 @@ def delete_user_review(id_user: Annotated[int, Depends(get_id_from_token)], id_m
 
 
 
+
+
 # POBRANIE ELEMENTOW LISTY DO OBEJRZENIA
 @app.get("/user/watchlist", status_code=status.HTTP_200_OK)
 def get_list_watchlist(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
@@ -221,3 +224,27 @@ def delete_movie_from_watchlist(id_user: Annotated[int, Depends(get_id_from_toke
     print(f"[WATCHLIST DELETE MOVIE]")
     watchlist = Watchlist(db=db, id_user=id_user, id_movie=id_movie)
     watchlist.delete_movie()
+
+
+# POBRANIE ELEMENTOW LISTY ULUBIONE
+@app.get("/user/favorite", status_code=status.HTTP_200_OK)
+def get_list_favorite(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
+    print(f"[FAVORITE]")
+    favorite = Favorite(db=db, id_user=id_user)
+    return favorite.get_list()
+
+
+# DODANIE FILMU ULUBIONYCH
+@app.post("/user/favorite/add/{id_movie}", status_code=status.HTTP_201_CREATED)
+def add_movie_to_favorite(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[FAVORITE ADD MOVIE]")
+    favorite = Favorite(db=db, id_user=id_user, id_movie=id_movie)
+    favorite.add_movie()
+
+
+# USUWANIE FILMU Z ULUBIONYCH
+@app.delete("/user/favorite/delete/{id_movie}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_movie_from_favorite(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[FAVORITE DELETE MOVIE]")
+    favorite = Favorite(db=db, id_user=id_user, id_movie=id_movie)
+    favorite.delete_movie()

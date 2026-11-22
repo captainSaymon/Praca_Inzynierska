@@ -25,6 +25,9 @@ class UserLoginDetailsSchema(BaseModel):
     nickname: str
     password: str
 
+class UserDeleteDetailsSchema(BaseModel):
+    password: str
+
 
 class UsersUpdateDetailsSchema(BaseModel):
     email: Optional[str] = None

@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from fastapi import HTTPException
 
-from schema.user import UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from schema.user import UserLoginDetailsSchema, UsersUpdateDetailsSchema, UserDeleteDetailsSchema
 from functions.security.password import create_hashed_password, verification_hashed_password
 from database.model.users import UsersModel
 from functions.security.token import create_acces_jwt
@@ -77,5 +77,21 @@ def edit(db: Session, data: UsersUpdateDetailsSchema, id: int):
 
 
 # USUWANIE KONTA
-def delete(db: Session):
-    pass
+def delete(db: Session, id: int, data: UserDeleteDetailsSchema):
+    # Sprawdzanie id
+    user = db.get(UsersModel, id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Nie znaleziono takiego użytkownika.")
+
+    # werifikacja hasla 
+    result = verification_hashed_password(data.password, user.password)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Hasło niepoprawne")
+
+    try:
+        db.delete(user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Użytkownik o takim email/nazwie już istnieje")

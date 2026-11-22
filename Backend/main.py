@@ -15,7 +15,7 @@ from functions.user.movie.action.review import create_review, search_all_review,
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
-from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema, UserDeleteDetailsSchema
 from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
 from functions.security.token import get_id_from_token
 
@@ -111,10 +111,10 @@ def edit_user(data: UsersUpdateDetailsSchema, id: Annotated[int, Depends(get_id_
     return edit(db, data, id)
 
 
-@app.patch("/delete/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
-def delete_user(db: Session = Depends(get_db)):
+@app.delete("/user/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(id: Annotated[int, Depends(get_id_from_token)], data: UserDeleteDetailsSchema, db: Session = Depends(get_db)):
     print(f"[DELETE USER]")
-    return delete(db)
+    delete(db, id, data)
 
 
 @app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)

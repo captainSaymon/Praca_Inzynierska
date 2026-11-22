@@ -1,11 +1,14 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+from typing import Annotated
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from schema.user import UserRegisterDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
 from functions.password import create_hashed_password, verification_hashed_password
 from database.model.users import UsersModel
+from functions.token import create_acces_jwt
 
 
 
@@ -30,7 +33,7 @@ def register(db: Session, data: UserLoginDetailsSchema):
 
 
 # LOGOWANIE
-def login(db: Session, data: UserRegisterDetailsSchema):
+def login(db: Session, data: UserLoginDetailsSchema):
     # sprawdzanie czy nazwa uzytkwonika jest w bazie
     user = db.execute(select(UsersModel).where((UsersModel.nickname == data.nickname))).scalars().first()
 
@@ -44,7 +47,8 @@ def login(db: Session, data: UserRegisterDetailsSchema):
     if not result:
         raise HTTPException(status_code=404, detail="Hasło niepoprawne")
 
-    return user
+    token_result = create_acces_jwt(id=user.id, nickname=user.nickname)
+    return token_result
 
 
 
@@ -71,3 +75,8 @@ def edit(db: Session, data: UsersUpdateDetailsSchema):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Użytkownik o takim email/nazwie już istnieje")
+
+
+# USUWANIE KONTA
+def delete(db: Session):
+    pass

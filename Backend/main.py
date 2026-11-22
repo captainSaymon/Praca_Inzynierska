@@ -1,6 +1,7 @@
-from typing import Optional
 from sqlalchemy.orm import Session
+from typing import Optional, Annotated
 from contextlib import asynccontextmanager
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import FastAPI, Depends, BackgroundTasks, Query, status
 
 from database.connect.connect import Base, engine, get_db
@@ -10,13 +11,14 @@ from functions.download.dataDetails import get_data
 from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
-from functions.user.user import register, login, edit
+from functions.user.user import register, login, edit, delete
 from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
 from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
 from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
+from schema.jwt import TokenResponse
 
 
 
@@ -96,7 +98,8 @@ def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)
     return register(db, data)
 
 
-@app.post("/login/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_200_OK)
+ # LOGOWANIE
+@app.post("/user/login", status_code=status.HTTP_200_OK)
 def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
     print(f"[LOGIN USER]")
     return login(db, data)
@@ -106,6 +109,12 @@ def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
 def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
     print(f"[EDIT USER]")
     return edit(db, data)
+
+
+@app.patch("/delete/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+def delete_user(db: Session = Depends(get_db)):
+    print(f"[DELETE USER]")
+    return delete(db)
 
 
 @app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)

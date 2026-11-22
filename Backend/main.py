@@ -11,7 +11,7 @@ from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
 from functions.user.user import register, login, edit, delete
-from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review
+from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review, delete_review
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
@@ -119,10 +119,10 @@ def delete_user(id: Annotated[int, Depends(get_id_from_token)], data: UserDelete
 
 
 # USTAWIANIE OCENY
-@app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+@app.post("/user/rating/movie", status_code=status.HTTP_201_CREATED)
 def create_user_movie_rating(data: RatingCreateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[CREATE RATING]")
-    return create_rating(db, data, id)
+    create_rating(db, data, id)
 
 
 # POBRANIE OCENY UZYTKOWNIKA KONKRETNEGO FILMU
@@ -140,25 +140,37 @@ def get_all_user_movie_rating(id_user: Annotated[int, Depends(get_id_from_token)
     return {"rates": ratings}
 
 
-@app.post("/user/review/movie", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def create_user_movie_review(data: ReviewCreateDetailsSchema, db: Session = Depends(get_db)):
+# UTWORZENIE RECENZJI
+@app.post("/user/review/movie", status_code=status.HTTP_201_CREATED)
+def create_user_movie_review(data: ReviewCreateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[CREATE REVIEW]")
-    return create_review(db, data)
+    create_review(db, data, id)
 
 
-@app.get("/user/{id_user}/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_user_movie_reviews(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+# POBRANIE RECENZJI UZYTKOWNIKA KONKRETNEGO FILMU
+@app.get("/user/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_reviews(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[SEARCH REVIEW]: movie {id_movie}")
     return search_review(db, id_user, id_movie)
 
 
-@app.get("/user/{id_user}/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_all_user_movie_reviews(id_user: int, db: Session = Depends(get_db)):
+# POBIERANIE WSZYSTKICH RECENZJI UZYTKOWNIKA
+@app.get("/user/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_reviews(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[SEARCH ALL REVIEW]")
     reviews = search_all_review(db, id_user)
     return {"reviews": reviews}
 
-@app.patch("/user/{id_user}/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: int, id_movie: int, db: Session = Depends(get_db)):
+
+# EDYCJA RECENZJI UZYTKOWNIKA
+@app.patch("/user/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[EDIT REVIEW]")
     return edit_review(db, id_user, id_movie, data)
+
+
+# USUWANIE RECENZJI USYTKOWNIKA
+@app.delete("/user/delete/review/{id_movie}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_review(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[DELETE REVIEW]")
+    delete_review(db, id_user, id_movie)

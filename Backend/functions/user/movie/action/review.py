@@ -9,11 +9,11 @@ from database.model.review import ReviewModel
 
 
 
-def create_review(db: Session, data: ReviewCreateDetailsSchema):
-    review = search_review(db, data.id_user, data.id_movie, check_duplicate=False)
+def create_review(db: Session, data: ReviewCreateDetailsSchema, id: int):
+    search_review(db, id, data.id_movie, check_duplicate=False)
 
     # tworzenie recenzji
-    new_review = ReviewModel(id_user=data.id_user, id_movie=data.id_movie, text_review=data.text_review)
+    new_review = ReviewModel(id_user=id, id_movie=data.id_movie, text_review=data.text_review)
 
     try:
         db.add(new_review)
@@ -22,8 +22,6 @@ def create_review(db: Session, data: ReviewCreateDetailsSchema):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=404, detail="Nie znaleziono wskazanego filmu/uzytkownika")
-    
-    return new_review
 
 
 def search_review(db: Session, id_user: int, id_movie: int, check_duplicate: bool = True):
@@ -31,15 +29,15 @@ def search_review(db: Session, id_user: int, id_movie: int, check_duplicate: boo
     review = db.get(ReviewModel, (id_user, id_movie))
 
     if not review and check_duplicate:
-        raise HTTPException(status_code=404, detail="Nie ma takiej oceny")
+        raise HTTPException(status_code=404, detail="Nie ma takiej recenzji")
     elif review and not check_duplicate:
-        raise HTTPException(status_code=400, detail="Taka ocena istnieje")
+        raise HTTPException(status_code=400, detail="Taka recenzja istnieje")
 
     return review
 
 
 def search_all_review(db: Session, id_user: int):
-    # sprawdzanie czy nazwa uzytkwonika jest w bazie
+    # sprawdzanie czy uzytkwonika dal jakas recenzje
     reviews = db.execute(select(ReviewModel).where((ReviewModel.id_user == id_user))).scalars().all()
 
     if not reviews:
@@ -55,3 +53,13 @@ def edit_review(db: Session, id_user: int, id_movie: int, data: ReviewEditDetail
     db.commit()
     db.refresh(review)
     return review
+
+
+def delete_review(db: Session, id_user: int, id_movie: int):
+    review = db.execute(select(ReviewModel).where(ReviewModel.id_user == id_user, ReviewModel.id_movie == id_movie)).scalars().first()
+
+    if not review:
+        raise HTTPException(status_code=404, detail="Nie istnieje taka recenzja")
+
+    db.delete(review)
+    db.commit()

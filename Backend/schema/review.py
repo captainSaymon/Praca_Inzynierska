@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import List
+from datetime import date
 
 
 # tworzenie recenzji
 class ReviewCreateDetailsSchema(BaseModel):
-    id_user: int
     id_movie: int
     text_review: str
 
@@ -14,7 +14,9 @@ class ReviewEditDetailsSchema(BaseModel):
 
 # wynik recenzji
 class ReviewResponseDetailsSchema(BaseModel):
+    id_movie: int
     text_review: str
+    created_date: date
 
     class Config:
         from_attributes = True

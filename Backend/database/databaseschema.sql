@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS MovieCheckDataBase.rating (
 CREATE TABLE IF NOT EXISTS MovieCheckDataBase.favorite (
 	id_user INT NOT NULL,
 	id_movie INT NOT NULL,
+	added_date DATE NOT NULL DEFAULT CURRENT_DATE,
 
 	PRIMARY KEY (id_user, id_movie),
 
@@ -83,9 +84,10 @@ CREATE TABLE IF NOT EXISTS MovieCheckDataBase.favorite (
 	CONSTRAINT foreign_key_id_movie FOREIGN KEY (id_movie) REFERENCES MovieCheckDataBase.movie(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS MovieCheckDataBase.towatch (
+CREATE TABLE IF NOT EXISTS MovieCheckDataBase.watchlist (
 	id_user INT NOT NULL,
 	id_movie INT NOT NULL,
+	added_date DATE NOT NULL DEFAULT CURRENT_DATE,
 
 	PRIMARY KEY (id_user, id_movie),
 

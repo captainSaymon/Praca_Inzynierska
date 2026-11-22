@@ -111,26 +111,30 @@ def edit_user(data: UsersUpdateDetailsSchema, id: Annotated[int, Depends(get_id_
     return edit(db, data, id)
 
 
+# USUWANIE UZYTKOWNIKA
 @app.delete("/user/delete", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(id: Annotated[int, Depends(get_id_from_token)], data: UserDeleteDetailsSchema, db: Session = Depends(get_db)):
     print(f"[DELETE USER]")
     delete(db, id, data)
 
 
+# USTAWIANIE OCENY
 @app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def create_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
+def create_user_movie_rating(data: RatingCreateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[CREATE RATING]")
-    return create_rating(db, data)
+    return create_rating(db, data, id)
 
 
-@app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_user_movie_rating(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+# POBRANIE OCENY UZYTKOWNIKA KONKRETNEGO FILMU
+@app.get("/user/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_rating(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[SEARCH RATING]: movie {id_movie}")
     return search_rating(db, id_user, id_movie)
 
 
-@app.get("/user/{id_user}/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_all_user_movie_rating(id_user: int, db: Session = Depends(get_db)):
+# POBIERANIE WSZYSTKICH OCEN UZYTKOWNIKA
+@app.get("/user/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_rating(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[SEARCH ALL RATING]")
     ratings = search_all_rating(db, id_user)
     return {"rates": ratings}

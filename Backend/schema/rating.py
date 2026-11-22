@@ -4,12 +4,12 @@ from typing import List
 
 # tworzenie oceny
 class RatingCreateDetailsSchema(BaseModel):
-    id_user: int
     id_movie: int
-    rate: int = Field(..., ge=1, le=10)
+    rate: int
 
 # wynik oceny
 class RatingResponseDetailsSchema(BaseModel):
+    id_movie: int
     rate: int
 
     class Config:

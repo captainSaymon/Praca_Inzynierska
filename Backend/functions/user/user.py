@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from fastapi import HTTPException
 
@@ -63,6 +64,10 @@ def edit(db: Session, data: UsersUpdateDetailsSchema):
     for key, value in new_data.items():
         setattr(user, key, value)
 
-    db.commit()
-    db.refresh(user)
-    return user
+    try:
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Użytkownik o takim email/nazwie już istnieje")

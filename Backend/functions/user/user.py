@@ -1,14 +1,12 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
-from fastapi import HTTPException, Depends
-from typing import Annotated
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import HTTPException
 
-from schema.user import UserRegisterDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
-from functions.password import create_hashed_password, verification_hashed_password
+from schema.user import UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from functions.security.password import create_hashed_password, verification_hashed_password
 from database.model.users import UsersModel
-from functions.token import create_acces_jwt
+from functions.security.token import create_acces_jwt
 
 
 
@@ -26,8 +24,9 @@ def register(db: Session, data: UserLoginDetailsSchema):
     db.add(user)
     db.commit()
     db.refresh(user)
-    
-    return user
+
+    token_result = create_acces_jwt(id=user.id, nickname=user.nickname)
+    return token_result
 
 
 
@@ -53,9 +52,9 @@ def login(db: Session, data: UserLoginDetailsSchema):
 
 
 # EDYCJA
-def edit(db: Session, data: UsersUpdateDetailsSchema):
+def edit(db: Session, data: UsersUpdateDetailsSchema, id: int):
     # Sprawdzanie id
-    user = db.get(UsersModel, data.id)
+    user = db.get(UsersModel, id)
     if not user:
         raise HTTPException(status_code=404, detail="Nie znaleziono takiego użytkownika.")
 

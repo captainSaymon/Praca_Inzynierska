@@ -4,10 +4,11 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
+from fastapi.security import HTTPAuthorizationCredentials
 
-from config import secret_key, algorithm, access_token_minutes, refresh_token_days, oauth2_scheme
+from config import secret_key, algorithm, access_token_minutes, refresh_token_days
 from schema.jwt import TokenResponse
-
+from bearer import bearer_scheme
 
 
 # TWORZENIE TOKENU JWT
@@ -43,3 +44,10 @@ def decode_validate_jwt(token: str, expected_type: str):
 
     except (InvalidTokenError, ValueError):
         raise HTTPException(status_code=401, detail="Nieprawidłowy lub wygasły token")
+
+
+def get_id_from_token(credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)]):
+    token = credentials.credentials
+    result = decode_validate_jwt(token, 'access')
+
+    return int(result.get("id"))

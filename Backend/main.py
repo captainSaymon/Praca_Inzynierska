@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional, Annotated
 from contextlib import asynccontextmanager
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import FastAPI, Depends, BackgroundTasks, Query, status
 
 from database.connect.connect import Base, engine, get_db
@@ -18,8 +17,7 @@ from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
 from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
 from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
-from schema.jwt import TokenResponse
-
+from functions.security.token import get_id_from_token
 
 
 
@@ -92,23 +90,25 @@ def search(q: Optional[str] = Query(None), db: Session = Depends(get_db), page: 
     return search_data(db, q, page, number_per_page)
 
 
-@app.post("/register/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+# REJESTRACJA
+@app.post("/user/register", status_code=status.HTTP_201_CREATED)
 def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)):
     print(f"[REGISTER USER]")
     return register(db, data)
 
 
- # LOGOWANIE
+# LOGOWANIE
 @app.post("/user/login", status_code=status.HTTP_200_OK)
 def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
     print(f"[LOGIN USER]")
     return login(db, data)
 
 
-@app.patch("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
-def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
+# EDYCJA UZYTKOWNIKA
+@app.patch("/user/edit", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+def edit_user(data: UsersUpdateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[EDIT USER]")
-    return edit(db, data)
+    return edit(db, data, id)
 
 
 @app.patch("/delete/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)

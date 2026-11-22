@@ -1,5 +1,5 @@
-from typing import Optional
 from sqlalchemy.orm import Session
+from typing import Optional, Annotated
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, BackgroundTasks, Query, status
 
@@ -10,14 +10,16 @@ from functions.download.dataDetails import get_data
 from functions.pages.data import movie_pages, movie_page_data, person_page_data
 from functions.search.data import search_data
 from functions.user.movie.action.rating import search_rating, search_all_rating, create_rating
-from functions.user.user import register, login, edit
-from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review
+from functions.user.user import register, login, edit, delete
+from functions.user.movie.action.review import create_review, search_all_review, search_review, edit_review, delete_review
 from config import url_movie_ids, url_person_ids, api_key, url_movie_details, url_person_details
 from schema.search import SearchSchema
 from schema.rating import RatingResponseDetailsSchema, RatingCreateDetailsSchema, RatingAllResponseDetailsSchema
-from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema
+from schema.user import UserRegisterDetailsSchema, UsersResponseDetailsSchema, UserLoginDetailsSchema, UsersUpdateDetailsSchema, UserDeleteDetailsSchema
 from schema.review import ReviewResponseDetailsSchema, ReviewAllResponseDetailsSchema, ReviewCreateDetailsSchema, ReviewEditDetailsSchema
-
+from functions.security.token import get_id_from_token
+from functions.user.movie.lists.watchlist import Watchlist
+from functions.user.movie.lists.favorite import Favorite
 
 
 
@@ -66,6 +68,10 @@ def save_person_data_to_database(background_tasks: BackgroundTasks, db: Session 
     return {"message": "Rozpoczęto pobieranie"}
 
 
+
+
+
+
 @app.get("/pages/movie")
 @app.get("/filters/movie")
 def get_movie_data_for_pages(db: Session = Depends(get_db), page: int = 0, number_per_page: int = 10, genre: str | None = None, decade: int | None = None, year: int | None = None, new: bool | None = False):
@@ -90,62 +96,155 @@ def search(q: Optional[str] = Query(None), db: Session = Depends(get_db), page: 
     return search_data(db, q, page, number_per_page)
 
 
-@app.post("/register/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+# REJESTRACJA
+@app.post("/user/register", status_code=status.HTTP_201_CREATED)
 def register_user(data: UserRegisterDetailsSchema, db: Session = Depends(get_db)):
     print(f"[REGISTER USER]")
     return register(db, data)
 
 
-@app.post("/login/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_200_OK)
+# LOGOWANIE
+@app.post("/user/login", status_code=status.HTTP_200_OK)
 def login_user(data: UserLoginDetailsSchema, db: Session = Depends(get_db)):
     print(f"[LOGIN USER]")
     return login(db, data)
 
 
-@app.patch("/edit/user", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
-def edit_user(data: UsersUpdateDetailsSchema, db: Session = Depends(get_db)):
+# EDYCJA UZYTKOWNIKA
+@app.patch("/user/edit", response_model=UsersResponseDetailsSchema, status_code=status.HTTP_202_ACCEPTED)
+def edit_user(data: UsersUpdateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[EDIT USER]")
-    return edit(db, data)
+    return edit(db, data, id)
 
 
-@app.post("/user/rating/movie", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def create_user_movie_rating(data: RatingCreateDetailsSchema, db: Session = Depends(get_db)):
+# USUWANIE UZYTKOWNIKA
+@app.delete("/user/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(id: Annotated[int, Depends(get_id_from_token)], data: UserDeleteDetailsSchema, db: Session = Depends(get_db)):
+    print(f"[DELETE USER]")
+    delete(db, id, data)
+
+
+
+
+
+
+# USTAWIANIE OCENY
+@app.post("/user/rating/movie", status_code=status.HTTP_201_CREATED)
+def create_user_movie_rating(data: RatingCreateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[CREATE RATING]")
-    return create_rating(db, data)
+    create_rating(db, data, id)
 
 
-@app.get("/user/{id_user}/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_user_movie_rating(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+# POBRANIE OCENY UZYTKOWNIKA KONKRETNEGO FILMU
+@app.get("/user/rating/movie/{id_movie}", response_model=RatingResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_rating(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[SEARCH RATING]: movie {id_movie}")
     return search_rating(db, id_user, id_movie)
 
 
-@app.get("/user/{id_user}/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_all_user_movie_rating(id_user: int, db: Session = Depends(get_db)):
+# POBIERANIE WSZYSTKICH OCEN UZYTKOWNIKA
+@app.get("/user/all/rating/movie", response_model=RatingAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_rating(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[SEARCH ALL RATING]")
     ratings = search_all_rating(db, id_user)
     return {"rates": ratings}
 
 
-@app.post("/user/review/movie", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def create_user_movie_review(data: ReviewCreateDetailsSchema, db: Session = Depends(get_db)):
+
+
+
+
+# UTWORZENIE RECENZJI
+@app.post("/user/review/movie", status_code=status.HTTP_201_CREATED)
+def create_user_movie_review(data: ReviewCreateDetailsSchema, id: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[CREATE REVIEW]")
-    return create_review(db, data)
+    create_review(db, data, id)
 
 
-@app.get("/user/{id_user}/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_user_movie_reviews(id_user: int, id_movie: int, db: Session = Depends(get_db)):
+# POBRANIE RECENZJI UZYTKOWNIKA KONKRETNEGO FILMU
+@app.get("/user/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_user_movie_reviews(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[SEARCH REVIEW]: movie {id_movie}")
     return search_review(db, id_user, id_movie)
 
 
-@app.get("/user/{id_user}/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
-def get_all_user_movie_reviews(id_user: int, db: Session = Depends(get_db)):
+# POBIERANIE WSZYSTKICH RECENZJI UZYTKOWNIKA
+@app.get("/user/all/review/movie", response_model=ReviewAllResponseDetailsSchema, status_code=status.HTTP_200_OK)
+def get_all_user_movie_reviews(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
     print(f"[SEARCH ALL REVIEW]")
     reviews = search_all_review(db, id_user)
     return {"reviews": reviews}
 
-@app.patch("/user/{id_user}/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
-def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: int, id_movie: int, db: Session = Depends(get_db)):
+
+# EDYCJA RECENZJI UZYTKOWNIKA
+@app.patch("/user/edit/review/movie/{id_movie}", response_model=ReviewResponseDetailsSchema, status_code=status.HTTP_201_CREATED)
+def edit_user_movie_reviews(data: ReviewEditDetailsSchema, id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
     print(f"[EDIT REVIEW]")
     return edit_review(db, id_user, id_movie, data)
+
+
+# USUWANIE RECENZJI USYTKOWNIKA
+@app.delete("/user/delete/review/{id_movie}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_review(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[DELETE REVIEW]")
+    delete_review(db, id_user, id_movie)
+
+
+
+
+
+
+
+# POBRANIE ELEMENTOW LISTY DO OBEJRZENIA
+@app.get("/user/watchlist", status_code=status.HTTP_200_OK)
+def get_list_watchlist(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
+    print(f"[WATCHLIST]")
+    watchlist = Watchlist(db=db, id_user=id_user)
+    return watchlist.get_list()
+
+
+# DODANIE FILMU DO OBEJRZENIA
+@app.post("/user/watchlist/add/{id_movie}", status_code=status.HTTP_201_CREATED)
+def add_movie_to_watchlist(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[WATCHLIST ADD MOVIE]")
+    watchlist = Watchlist(db=db, id_user=id_user, id_movie=id_movie)
+    watchlist.add_movie()
+
+
+# USUWANIE FILMU Z DO OBEJRZENIA
+@app.delete("/user/watchlist/delete/{id_movie}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_movie_from_watchlist(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[WATCHLIST DELETE MOVIE]")
+    watchlist = Watchlist(db=db, id_user=id_user, id_movie=id_movie)
+    watchlist.delete_movie()
+
+
+# POBRANIE ELEMENTOW LISTY ULUBIONE
+@app.get("/user/favorite", status_code=status.HTTP_200_OK)
+def get_list_favorite(id_user: Annotated[int, Depends(get_id_from_token)], db: Session = Depends(get_db)):
+    print(f"[FAVORITE]")
+    favorite = Favorite(db=db, id_user=id_user)
+    return favorite.get_list()
+
+
+# DODANIE FILMU ULUBIONYCH
+@app.post("/user/favorite/add/{id_movie}", status_code=status.HTTP_201_CREATED)
+def add_movie_to_favorite(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[FAVORITE ADD MOVIE]")
+    favorite = Favorite(db=db, id_user=id_user, id_movie=id_movie)
+    favorite.add_movie()
+
+
+# USUWANIE FILMU Z ULUBIONYCH
+@app.delete("/user/favorite/delete/{id_movie}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_movie_from_favorite(id_user: Annotated[int, Depends(get_id_from_token)], id_movie: int, db: Session = Depends(get_db)):
+    print(f"[FAVORITE DELETE MOVIE]")
+    favorite = Favorite(db=db, id_user=id_user, id_movie=id_movie)
+    favorite.delete_movie()

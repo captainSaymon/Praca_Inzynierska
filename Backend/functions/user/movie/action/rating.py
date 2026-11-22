@@ -9,11 +9,14 @@ from database.model.rating import RatingModel
 
 
 
-def create_rating(db: Session, data: RatingCreateDetailsSchema):
-    rating = search_rating(db, data.id_user, data.id_movie, check_duplicate=False)
+def create_rating(db: Session, data: RatingCreateDetailsSchema, id_user: int):
+    if not (1 <= data.rate <= 10):
+        raise HTTPException(status_code=422, detail="Ocena musi mieścić się w przedziale od 1 do 10")
 
-    # tworzenie uzytkowniika
-    new_rating = RatingModel(id_user=data.id_user, id_movie=data.id_movie, rate=data.rate)
+    search_rating(db, id_user, data.id_movie, check_duplicate=False)
+
+    # tworzenie oceny
+    new_rating = RatingModel(id_user=id_user, id_movie=data.id_movie, rate=data.rate)
 
     try:
         db.add(new_rating)
